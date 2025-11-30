@@ -11,6 +11,7 @@ It converts any URL to an LLM-friendly input with `http://127.0.0.1:3000/https:/
 - 🖼️ Saves screenshots locally instead of uploading to Google Cloud Storage
 - 📥 Provides download URLs for saved screenshots
 - 🌐 Converts web content to LLM-friendly formats
+- 📄 **NEW**: Accepts HTML source code directly for conversion (POST request)
 
 ## ⚠️ Limitations
 - 📄 Currently does not support parsing PDFs
@@ -63,6 +64,9 @@ This demonstrates that the Reader can run effectively even on minimal hardware r
    ```
 
 ## 🖥️ Usage
+
+### Method 1: URL-based Web Crawling (GET/POST request)
+
 Once the Docker container is running, you can use curl to make requests. Here are examples for different response types:
 
 1. 📝 Markdown (bypasses readability processing):
@@ -85,10 +89,68 @@ Once the Docker container is running, you can use curl to make requests. Here ar
    curl -H "X-Respond-With: screenshot" 'http://127.0.0.1:3000/https://google.com'
    ```
 
-5.  📸 Full-Page Screenshot (returns the URL of the webpage's screenshot):
+5. 📸 Full-Page Screenshot (returns the URL of the webpage's screenshot):
    ```bash
    curl -H "X-Respond-With: pageshot" 'http://127.0.0.1:3000/https://google.com'
    ```
+
+### Method 2: HTML Source Code Input (POST request) - NEW! ⭐
+
+You can now send HTML source code directly to the Reader service without needing to crawl a live website. This is useful for:
+- Processing cached or stored HTML content
+- Testing markdown conversion without network requests
+- Batch processing of HTML documents
+
+**Basic usage:**
+```bash
+curl -X POST http://127.0.0.1:3000/ \
+  -H "Content-Type: application/json" \
+  -H "X-Respond-With: markdown" \
+  -d '{"html": "<h1>Title</h1><p>Content here</p>"}'
+```
+
+**Request body parameters:**
+- `html` (required): HTML source code as string
+- `url` (optional): Base URL for resolving relative links (default: `http://localhost:3000/direct-input`)
+
+**Example with base URL for relative link resolution:**
+```bash
+curl -X POST http://127.0.0.1:3000/ \
+  -H "Content-Type: application/json" \
+  -H "X-Respond-With: markdown" \
+  -d '{
+    "html": "<h1>Article</h1><p>See <a href=\"/about\">about page</a></p>",
+    "url": "https://example.com/blog"
+  }'
+```
+
+**Response formats supported with HTML input:**
+- `markdown` - Converts HTML to Markdown (default)
+- `html` - Returns the original HTML
+- `text` - Extracts plain text content
+
+**Example using PowerShell:**
+```powershell
+$html = @{
+    html = "<h1>Test Title</h1><p>This is a test paragraph.</p><ul><li>Item 1</li><li>Item 2</li></ul>"
+} | ConvertTo-Json
+
+Invoke-WebRequest -Uri http://127.0.0.1:3000/ `
+    -Method POST `
+    -Headers @{"Content-Type"="application/json"; "X-Respond-With"="markdown"} `
+    -Body $html | Select-Object -ExpandProperty Content
+```
+
+**Example output:**
+```markdown
+Test Title
+==========
+
+This is a test paragraph.
+
+*   Item 1
+*   Item 2
+```
 
 ## 🙏 Acknowledgements
 This project is based on the excellent work done by multiple contributors:

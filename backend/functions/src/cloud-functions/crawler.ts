@@ -635,6 +635,53 @@ ${suffixMixins.length ? `\n${suffixMixins.join('\n\n')}\n` : ''}`;
                 return sendResponse(res, 'Favicon not available', { contentType: 'text/plain', envelope: null, code: 404 });
             }
 
+            // Check if HTML source code is provided directly
+            if (crawlerOptions.html) {
+                console.log('HTML source code detected in request body');
+
+                // Use provided base URL or create a default one
+                const baseUrl = crawlerOptions.url || 'http://localhost:3000/direct-input';
+                let parsedUrl: URL;
+                try {
+                    parsedUrl = new URL(baseUrl);
+                    console.log('Using base URL for HTML input:', parsedUrl.toString());
+                } catch (error) {
+                    console.log('Invalid base URL provided with HTML:', baseUrl, error);
+                    return sendResponse(res, 'Invalid base URL provided', { contentType: 'text/plain', envelope: null, code: 400 });
+                }
+
+                // Create a PageSnapshot from the provided HTML
+                const htmlSnapshot: PageSnapshot = {
+                    href: parsedUrl.toString(),
+                    html: crawlerOptions.html,
+                    title: '',  // Will be extracted from HTML if available
+                    text: '',   // Will be extracted from HTML content
+                };
+
+                try {
+                    // Extract title from HTML if available
+                    const titleMatch = crawlerOptions.html.match(/<title[^>]*>([^<]*)<\/title>/i);
+                    if (titleMatch && titleMatch[1]) {
+                        htmlSnapshot.title = titleMatch[1].trim();
+                    }
+
+                    // Extract text content from HTML for fallback
+                    const tempDoc = this.jsdomControl.snippetToElement(crawlerOptions.html, parsedUrl.toString());
+                    const textContent = tempDoc?.innerText || '';
+                    htmlSnapshot.text = textContent.trim();
+
+                    // Format the snapshot
+                    const formatted = await this.formatSnapshot(crawlerOptions.respondWith, htmlSnapshot, parsedUrl);
+                    console.log('Successfully formatted HTML input');
+                    return this.sendFormattedResponse(res, formatted, crawlerOptions.respondWith);
+
+                } catch (htmlProcessError: any) {
+                    console.error('Error processing provided HTML:', htmlProcessError);
+                    return sendResponse(res, 'Error processing provided HTML', { contentType: 'text/plain', envelope: null, code: 400 });
+                }
+            }
+
+            // Original URL-based crawling flow
             // Extract the actual URL to crawl
             const urlToCrawl = noSlashURL.startsWith('http') ? noSlashURL : `http://${noSlashURL}`;
 
